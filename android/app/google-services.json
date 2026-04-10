@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "695818148181",
+    "project_id": "test-fee32",
+    "storage_bucket": "test-fee32.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:695818148181:android:70798d2932b3502ac937dc",
+        "android_client_info": {
+          "package_name": "com.example.service_hub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCWBrpJDeUqXYZbnTm6srT11FoFDu_7oTo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
