@@ -23,7 +23,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Web
-        run: flutter build web --release --base-href "/service-hub-admin/"
+        run: flutter build web --release --target lib/main_admin.dart --base-href "/service-hub-admin/"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
