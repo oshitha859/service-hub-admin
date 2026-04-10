@@ -2960,7 +2960,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     Future.delayed(const Duration(seconds: 3), () {
       // Route to admin login on web, customer onboarding on mobile
-      final nextScreen = kIsWeb ? const LoginScreen() : const OnboardingScreen();
+      final nextScreen = kIsWeb ? const AdminLoginScreen() : const OnboardingScreen();
       
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
@@ -4405,6 +4405,311 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Admin Login Screen - Web only
+class AdminLoginScreen extends StatefulWidget {
+  const AdminLoginScreen({super.key});
+
+  @override
+  State<AdminLoginScreen> createState() => _AdminLoginScreenState();
+}
+
+class _AdminLoginScreenState extends State<AdminLoginScreen> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
+  bool _obscurePassword = true;
+
+  void _loginAdmin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter email and password')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      // Sign in with Supabase
+      final response = await sb.Supabase.instance.client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      if (!mounted) return;
+
+      // Verify user is admin
+      final userId = response.user?.id;
+      if (userId == null) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Authentication failed')),
+        );
+        return;
+      }
+
+      // Check user role
+      final users = await sb.Supabase.instance.client
+          .from('users')
+          .select()
+          .eq('id', userId)
+          .limit(1);
+
+      if (!mounted) return;
+
+      if (users.isEmpty) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User profile not found')),
+        );
+        return;
+      }
+
+      final userData = users[0];
+      final role = userData['role'] as String?;
+      final isVerified = userData['is_verified'] as bool? ?? false;
+
+      if (role != 'admin') {
+        setState(() => _isLoading = false);
+        // Sign out non-admin users
+        await sb.Supabase.instance.client.auth.signOut();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Access denied. Admin credentials required.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+
+      if (!isVerified) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Admin account is not verified'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      // Admin successfully authenticated - AuthWrapper will handle routing
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      String msg = e.toString();
+      if (e is sb.AuthException) msg = e.message;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0A0E17), Color(0xFF1A1F30)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Logo/Header
+                  Container(
+                    width: 100,
+                    height: 100,
+                    margin: const EdgeInsets.only(bottom: 30),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF5E60CE).withOpacity(0.2),
+                      border: Border.all(
+                        color: const Color(0xFF5E60CE),
+                        width: 2,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.shield_admin_rounded,
+                      size: 50,
+                      color: Color(0xFF5E60CE),
+                    ),
+                  ),
+                  const Text(
+                    'Admin Control Panel',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Ceylon Service Hub',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  // Email Field
+                  const Text(
+                    'Email Address',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    style: const TextStyle(color: Colors.white),
+                    enabled: !_isLoading,
+                    decoration: InputDecoration(
+                      hintText: 'admin@ceylonservicehub.com',
+                      hintStyle: const TextStyle(color: Colors.white24),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.05),
+                      prefixIcon: const Icon(Icons.email, color: Colors.white70),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF5E60CE), width: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Password Field
+                  const Text(
+                    'Password',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    style: const TextStyle(color: Colors.white),
+                    enabled: !_isLoading,
+                    decoration: InputDecoration(
+                      hintText: 'Enter your password',
+                      hintStyle: const TextStyle(color: Colors.white24),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.05),
+                      prefixIcon: const Icon(Icons.lock, color: Colors.white70),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          color: Colors.white70,
+                        ),
+                        onPressed: () {
+                          setState(() => _obscurePassword = !_obscurePassword);
+                        },
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF5E60CE), width: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  // Login Button
+                  _isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF5E60CE),
+                          ),
+                        )
+                      : ElevatedButton(
+                          onPressed: _loginAdmin,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF5E60CE),
+                            minimumSize: const Size(double.infinity, 55),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 8,
+                            shadowColor: const Color(0xFF5E60CE).withOpacity(0.4),
+                          ),
+                          child: const Text(
+                            'Sign In',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ),
+                  const SizedBox(height: 20),
+                  // Security Note
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF5E60CE).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF5E60CE).withOpacity(0.3),
+                      ),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Color(0xFF5E60CE), size: 20),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Admin credentials required. Unauthorized access is logged.',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
